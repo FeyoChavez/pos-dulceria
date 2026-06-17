@@ -50,6 +50,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ products: productsByName, multiple: true });
     }
 
+    // Si no encuentra nada
     return NextResponse.json({ product: null }, { status: 404 });
 
   } catch (error) {
