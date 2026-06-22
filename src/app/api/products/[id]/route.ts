@@ -2,37 +2,52 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-  // Esperamos los parámetros de la ruta antes de usarlos
-  const { id } = await params;
-
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> } 
+) {
   try {
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    
+    const tenantId = (session.user as any).tenantId;
+
+    const { id } = await params;
+
     const body = await request.json();
-    const { name, barcode, priceCost, priceSale, stock, isByWeight } = body;
+    const { name, barcode, priceCost, priceSale, isByWeight } = body;
+
+    if (!name || priceCost === undefined || priceSale === undefined) {
+      return NextResponse.json({ error: 'Faltan campos mandatorios (Nombre, Costo o Venta)' }, { status: 400 });
+    }
 
     const updatedProduct = await prisma.product.update({
-      // Validamos el id y aseguramos que el producto pertenezca al tenant actual
-      where: { id, tenantId: (session.user as any).tenantId },
+      where: { 
+        id, 
+        tenantId 
+      },
       data: {
         name,
-        barcode: barcode || null,
+        barcode: barcode === '' ? null : barcode,
         priceCost: Number(priceCost),
         priceSale: Number(priceSale),
-        stock: Number(stock),
         isByWeight: Boolean(isByWeight),
-      },
+      }
     });
 
     return NextResponse.json(updatedProduct);
-  } catch (error) {
-    return NextResponse.json({ error: 'Error al actualizar producto' }, { status: 500 });
+
+  } catch (error: any) {
+    console.error("ERROR REAL EN PUT /api/products/[id]:", error); 
+    return NextResponse.json({ error: 'Error interno al actualizar el producto' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: Request, 
+  { params }: { params: Promise<{ id: string }> } 
+) {
+
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 

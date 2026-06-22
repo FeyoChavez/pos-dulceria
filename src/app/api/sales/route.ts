@@ -14,20 +14,37 @@ export async function POST(request: Request) {
     // Calcular el total en el servidor para evitar manipulaciones en el cliente
     const total = cart.reduce((acc: number, item: any) => acc + item.subtotal, 0);
 
-    // Si algo falla, se cancela todo.
+    // Ejecutamos todo dentro de la transacción segura
     const result = await prisma.$transaction(async (tx) => {
+      
+      // VALIDACIÓN CRÍTICA: Buscar si el cajero tiene un turno/caja abierta actualmente
+      const activeSession = await tx.cashSession.findFirst({
+        where: { 
+          tenantId, 
+          userId, 
+          status: 'OPEN' 
+        }
+      });
+
+      // Si no hay caja abierta:
+      if (!activeSession) {
+        throw new Error('Caja_Cerrada');
+      }
+
+      // Crear la Venta asignándole el cashSessionId de la caja activa
       const nuevaVenta = await tx.sale.create({
         data: {
           total,
           paymentMethod: paymentMethod || 'CASH',
           tenantId,
           userId,
+          cashSessionId: activeSession.id, //  Conectamos la venta al corte actual
         },
       });
 
-      // guardar detalles y actualizar inventario
+      // Guardar detalles y actualizar inventario
       for (const item of cart) {
-        // Guardar el detalle de lo vendido (usando priceSnap para congelar el precio)
+        // Guardar el detalle de lo vendido
         await tx.saleItem.create({
           data: {
             saleId: nuevaVenta.id,
@@ -42,7 +59,7 @@ export async function POST(request: Request) {
           where: { id: item.id },
           data: {
             stock: {
-              decrement: item.quantity, // Prisma 6 maneja decrementos nativos de forma segura
+              decrement: item.quantity,
             },
           },
         });
@@ -53,7 +70,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, saleId: result.id });
 
-  } catch (error) {
+  } catch (error: any) {
+    // Si la transacción se canceló porque la caja estaba cerrada, respondemos con código 400
+    if (error.message === 'Caja_Cerrada') {
+      return NextResponse.json({ error: 'Debes abrir turno/caja antes de realizar una venta.' }, { status: 400 });
+    }
+
     console.error('Error registrando la venta:', error);
     return NextResponse.json({ error: 'Error interno al procesar la venta' }, { status: 500 });
   }
@@ -65,22 +87,42 @@ export async function GET(request: Request) {
 
   const tenantId = (session.user as any).tenantId;
 
+  const userId = session.user.id as string;
+
+  // Capturar los parámetros de fecha de la URL
+  const { searchParams } = new URL(request.url);
+  const startDateStr = searchParams.get('startDate');
+  const endDateStr = searchParams.get('endDate');
+
+  // Construir el filtro de tiempo de Prisma
+  const dateFilter: any = {};
+  if (startDateStr) {
+    dateFilter.gte = new Date(`${startDateStr}T00:00:00.000Z`);
+  }
+  if (endDateStr) {
+    dateFilter.lte = new Date(`${endDateStr}T23:59:59.999Z`);
+  }
+
   try {
-    // obtenemos las ventas de esta tienda, incluyendo quien la hizo y que articulos tiene
     const sales = await prisma.sale.findMany({
-      where: { tenantId },
+      where: { 
+        tenantId,
+        // Si se pasan fechas, filtramos el campo createdAt
+        ...(startDateStr || endDateStr ? { createdAt: dateFilter } : {})
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
-          select: { name: true } // traemos el nombre del cajero 
+          select: { name: true }
         },
         items: {
           include: {
             product: {
-              select: { name: true } // traemos el nombre del dulce vendido
+              select: { name: true }
             }
           }
-        }
+        },
+        refund: true
       }
     });
 

@@ -24,3 +24,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  
+  /* Forzamos a que todo el documento pueda crecer hacia abajo sin cortarse */
+  html, body, main {
+    overflow: visible !important;
+    height: auto !important;
+    background-color: white !important;
+  }
+}

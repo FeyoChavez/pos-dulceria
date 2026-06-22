@@ -10,24 +10,30 @@ datasource db {
 
 model Tenant {
   id        String    @id @default(uuid())
-  name      String    
+  name      String
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
   users     User[]
   products  Product[]
   sales     Sale[]
+  inventoryMovements InventoryMovement[]
 }
 
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
-  password  String   
+  password  String
   name      String
-  role      Role     @default(CASHIER) 
+  role      Role     @default(CASHIER)
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sales     Sale[]   
+  sales     Sale[]
   createdAt DateTime @default(now())
+
+  inventoryMovements InventoryMovement[]
+  cashSessions CashSession[]
+  refunds      Refund[]
 }
 
 enum Role {
@@ -36,40 +42,108 @@ enum Role {
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  barcode     String?  
-  name        String
-  priceCost   Float    
-  priceSale   Float    
-  stock       Float    
-  isByWeight  Boolean  @default(false) 
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  saleItems   SaleItem[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  barcode    String?
+  name       String
+  priceCost  Float
+  priceSale  Float
+  stock      Float
+  isByWeight Boolean  @default(false)
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@unique([tenantId, barcode]) 
+  saleItems          SaleItem[]
+  InventoryMovements InventoryMovement[]
+
+  @@unique([tenantId, barcode])
 }
 
 model Sale {
   id            String     @id @default(uuid())
   total         Float
-  paymentMethod String   
+  paymentMethod String
   tenantId      String
   tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId        String
   user          User       @relation(fields: [userId], references: [id])
   items         SaleItem[]
   createdAt     DateTime   @default(now())
+  cashSessionId String?
+
+  refund Refund?
+
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
 }
 
 model SaleItem {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   saleId    String
-  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  quantity  Float    
-  priceSnap Float    
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Float
+  priceSnap Float
+}
+
+// corte de caja
+model CashSession {
+  id              String    @id @default(uuid())
+  tenantId        String
+  userId          String
+  openingBalance  Float // Dinero inicial (fondo)
+  closingBalance  Float? // Dinero físico reportado al cerrar
+  expectedBalance Float? // Dinero que el sistema calcula que debería haber
+  status          String    @default("OPEN") // OPEN o CLOSED
+  openedAt        DateTime  @default(now())
+  closedAt        DateTime?
+
+  user    User     @relation(fields: [userId], references: [id])
+  sales   Sale[] // Relación para saber qué ventas se hicieron en este turno
+  refunds Refund[]
+
+  @@index([tenantId])
+}
+
+model Refund {
+  id      String  @id @default(uuid())
+  amount  Float // Monto devuelto (normalmente el total de la venta)
+  reason  String?
+  restock Boolean @default(true) // ¿El dulce regresó al estante o fue merma?
+
+  saleId String @unique
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  tenantId String
+
+  userId String // Usuario/Admin que autorizó la devolución
+  user   User   @relation(fields: [userId], references: [id])
+
+  cashSessionId String? // La caja activa de HOY de donde se sacó el dinero
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model InventoryMovement {
+  id          String   @id @default(uuid())
+  type        String   // "IN" (Entrada/Compra) o "OUT" (Salida/Merma)
+  quantity    Float    // Cantidad sumada o restada
+  reason      String   // Motivo detallado
+  
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, productId])
 }
