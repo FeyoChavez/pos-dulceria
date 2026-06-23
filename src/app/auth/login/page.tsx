@@ -30,6 +30,9 @@ export default function LoginPage() {
       } else {
         // Redirige directamente al Punto de Venta tras un login exitoso
         router.push('/dashboard/pos');
+        fetch('/api/auth/session')
+          .then(res => res.json())
+          .then(data => console.log("GAFETE IMPRESO EN SESIÓN:", data));
         router.refresh();
       }
     } catch (err) {

@@ -4,10 +4,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 
-export default function Sidebar() {
+interface SidebarProps {
+  userRole: "ADMIN" | "CASHIER";
+}
+
+export default function Sidebar({ userRole }: SidebarProps) {
   const pathname = usePathname();
 
   const menuItems = [
+    {
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      ),
+    },
     {
       name: 'Punto de Venta',
       href: '/dashboard/pos',
@@ -62,7 +75,25 @@ export default function Sidebar() {
         </svg>
       ),
     },
+    {
+      name: 'Personal / Empleados',
+      href: '/dashboard/empleados',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+    },
   ];
+
+  const linksPermitidos = menuItems.filter((item) => {
+    if (userRole === 'CASHIER') {
+      // El cajero tiene prohibido ver cualquier ruta que no sea POS o Caja
+      return item.href === '/dashboard/pos' || item.href === '/dashboard/caja';
+    }
+    // Si es ADMIN
+    return true;
+  });
 
   return (
     <aside className="w-64 bg-white border-r border-zinc-200 h-screen flex flex-col shadow-sm hidden md:flex sticky top-0 print:hidden">
@@ -77,7 +108,7 @@ export default function Sidebar() {
 
       {/* Navegación Principal */}
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
+        {linksPermitidos.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link

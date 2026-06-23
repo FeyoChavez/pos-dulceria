@@ -3,83 +3,75 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { cart, paymentMethod, tenantId, userId } = body;
-
-    if (!cart || cart.length === 0 || !tenantId || !userId) {
-      return NextResponse.json({ error: 'Datos de venta incompletos' }, { status: 400 });
-    }
-
-    // Calcular el total en el servidor para evitar manipulaciones en el cliente
-    const total = cart.reduce((acc: number, item: any) => acc + item.subtotal, 0);
-
-    // Ejecutamos todo dentro de la transacción segura
-    const result = await prisma.$transaction(async (tx) => {
+    try {
+      const session = await auth();
+      if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
       
-      // VALIDACIÓN CRÍTICA: Buscar si el cajero tiene un turno/caja abierta actualmente
-      const activeSession = await tx.cashSession.findFirst({
-        where: { 
-          tenantId, 
-          userId, 
-          status: 'OPEN' 
-        }
-      });
+      const tenantId = (session.user as any).tenantId;
+      const userId = session.user.id as string;
 
-      // Si no hay caja abierta:
-      if (!activeSession) {
-        throw new Error('Caja_Cerrada');
-      }
+      const { cart, paymentMethod } = await request.json();
 
-      // Crear la Venta asignándole el cashSessionId de la caja activa
-      const nuevaVenta = await tx.sale.create({
-        data: {
-          total,
-          paymentMethod: paymentMethod || 'CASH',
-          tenantId,
-          userId,
-          cashSessionId: activeSession.id, //  Conectamos la venta al corte actual
-        },
-      });
+      if (!cart || cart.length === 0) return NextResponse.json({ error: 'Carrito vacío' }, { status: 400 });
 
-      // Guardar detalles y actualizar inventario
-      for (const item of cart) {
-        // Guardar el detalle de lo vendido
-        await tx.saleItem.create({
-          data: {
-            saleId: nuevaVenta.id,
-            productId: item.id,
-            quantity: item.quantity,
-            priceSnap: item.priceSale,
-          },
+      const total = cart.reduce((acc: number, item: any) => acc + item.subtotal, 0);
+
+      const result = await prisma.$transaction(async (tx) => {
+        
+        const activeSession = await tx.cashSession.findFirst({
+          where: { tenantId, userId, status: 'OPEN' },
+          select: { id: true } 
         });
 
-        // Descontar del inventario del producto
-        await tx.product.update({
-          where: { id: item.id },
+        if (!activeSession) throw new Error('Caja_Cerrada');
+
+        const nuevaVenta = await tx.sale.create({
           data: {
-            stock: {
-              decrement: item.quantity,
-            },
-          },
+            total,
+            paymentMethod: paymentMethod || 'CASH',
+            tenantId,
+            userId,
+            cashSessionId: activeSession.id,
+            items: {
+              create: cart.map((item: any) => ({
+                productId: item.id,
+                quantity: item.quantity,
+                priceSnap: item.priceSale
+              }))
+            }
+          }
         });
+
+       await Promise.all([
+          ...cart.map((item: any) => 
+            tx.product.update({
+              where: { id: item.id },
+              data: { stock: { decrement: item.quantity } }
+            })
+          ),
+          tx.cashSession.update({
+            where: { id: activeSession.id },
+            data: { expectedBalance: { increment: total } }
+          })
+        ]);
+
+        return nuevaVenta;
+
+      }, {
+        maxWait: 5000,  // Milisegundos máximos intentando contactar a PostgreSQL
+        timeout: 15000  // Le subimos el límite de asfixia a 15 segundos
+      });
+
+      return NextResponse.json({ success: true, saleId: result.id });
+
+    } catch (error: any) {
+      if (error.message === 'Caja_Cerrada') {
+        return NextResponse.json({ error: 'Debes abrir turno de caja antes de vender.' }, { status: 400 });
       }
-
-      return nuevaVenta;
-    });
-
-    return NextResponse.json({ success: true, saleId: result.id });
-
-  } catch (error: any) {
-    // Si la transacción se canceló porque la caja estaba cerrada, respondemos con código 400
-    if (error.message === 'Caja_Cerrada') {
-      return NextResponse.json({ error: 'Debes abrir turno/caja antes de realizar una venta.' }, { status: 400 });
+      console.error('Error en POST /sales:', error);
+      return NextResponse.json({ error: 'Error interno procesando la venta' }, { status: 500 });
     }
-
-    console.error('Error registrando la venta:', error);
-    return NextResponse.json({ error: 'Error interno al procesar la venta' }, { status: 500 });
   }
-}
 
 export async function GET(request: Request) {
   const session = await auth();
