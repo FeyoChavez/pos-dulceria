@@ -17,6 +17,7 @@ export async function GET() {
         email: true,
         role: true,
         createdAt: true,
+        isActive: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -27,8 +28,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }
-
-// CREAR UN NUEVO EMPLEADO 
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -75,5 +74,35 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Error creating employee:", error);
     return NextResponse.json({ error: 'Error interno al registrar empleado' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user || (session.user as any).role !== 'ADMIN') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const tenantId = (session.user as any).tenantId;
+    const { id, isActive } = await request.json();
+
+    if (id === session.user.id) {
+      return NextResponse.json({ 
+        error: 'No puedes inhabilitar tu propia cuenta de Administrador.' 
+      }, { status: 400 });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id, tenantId },
+      data: { isActive },
+      select: { id: true, name: true, isActive: true }
+    });
+
+    return NextResponse.json({ success: true, employee: updatedUser });
+
+  } catch (error) {
+    console.error("Error toggling employee status:", error);
+    return NextResponse.json({ error: 'Error interno cambiando estado' }, { status: 500 });
   }
 }

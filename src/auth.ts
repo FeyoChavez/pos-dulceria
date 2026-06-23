@@ -22,8 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         // NOTA: En producción aquí validdaremos la contraseña encriptada con bcrypt.
-        // Como en el SEED pusimos texto plano para pruebas rápidas, validamos directo:
-        if (user && user.password === credentials.password) {
+        if (user && user.isActive && user.password === credentials.password) {
           return {
             id: user.id,
             name: user.name,
