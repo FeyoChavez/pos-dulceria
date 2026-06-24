@@ -26,6 +26,7 @@ export default function PosPage() {
   const [catalogoLocal, setCatalogoLocal] = useState<any[]>([]);
   const [clientesLocal, setClientesLocal] = useState<Customer[]>([]); 
   const [tenantId, setTenantId] = useState('');
+  const [tenantLocal, setTenantLocal] = useState<any | null>(null);
   const [userId, setUserId] = useState('');
 
   // Estados de Carrito y Transacción
@@ -54,6 +55,9 @@ export default function PosPage() {
         setUserId(data.userId);
         setCatalogoLocal(data.catalogo || []);
         setClientesLocal(data.clientes || []);
+
+        setTenantLocal(data.tenant || null);
+        
         setAppStatus('READY');
       })
       .catch(() => setAppStatus('LOCKED'));
@@ -202,7 +206,8 @@ export default function PosPage() {
         <SearchModal isOpen={isModalOpen} results={searchResults} onSelect={product => { addToCart(product); setIsModalOpen(false); setSearchInput(""); setTimeout(() => searchInputRef.current?.focus(), 50); }} onClose={() => { setIsModalOpen(false); setSearchInput(""); setTimeout(() => searchInputRef.current?.focus(), 50); }} />
       </div>
 
-      <div className="hidden print:block">{ticketData && <div id="ticket-print-container"><Ticket cart={ticketData.cart} total={ticketData.total} date={ticketData.date} /></div>}</div>
+      <div className="hidden print:block">{ticketData && <div id="ticket-print-container"><Ticket cart={ticketData.cart} total={ticketData.total} date={ticketData.date} tenant={tenantLocal} /></div>}
+      </div>
     </>
   );
 }

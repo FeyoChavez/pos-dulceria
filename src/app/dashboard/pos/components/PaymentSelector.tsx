@@ -136,7 +136,7 @@ export default function PaymentSelector({
                       className="w-full text-left px-3.5 py-2.5 text-xs text-zinc-700 hover:bg-zinc-100 transition-colors flex justify-between items-center group"
                     >
                       <span className="font-semibold group-hover:text-zinc-900">{cust.name}</span>
-                      {/* 🔥 FIJADO A DOS DECIMALES */}
+                      
                       <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold ${
                         cust.balance < 0 ? 'bg-red-50 text-red-600' : 'bg-zinc-100 text-zinc-500'
                       }`}>

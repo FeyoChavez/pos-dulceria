@@ -9,6 +9,7 @@ export async function GET() {
 
     const tenantId = (session.user as any).tenantId;
     const userId = session.user.id;
+    const tenantInfo = await prisma.tenant.findUnique({ where: { id: tenantId }});
 
     // Descargamos Caja, Productos y Clientes en paralelo
     const [cajaAbierta, catalogo, clientes] = await Promise.all([
@@ -32,7 +33,8 @@ export async function GET() {
       userId,
       isCajaAbierta: !!cajaAbierta,
       catalogo,
-      clientes 
+      clientes,
+      tenant: tenantInfo
     });
 
   } catch (error) {
