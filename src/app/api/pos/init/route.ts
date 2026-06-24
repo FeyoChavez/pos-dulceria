@@ -10,22 +10,20 @@ export async function GET() {
     const tenantId = (session.user as any).tenantId;
     const userId = session.user.id;
 
-    // Disparo SQL optimizado: Pedimos la caja y los dulces al mismo tiempo
-    const [cajaAbierta, catalogo] = await Promise.all([
+    // Descargamos Caja, Productos y Clientes en paralelo
+    const [cajaAbierta, catalogo, clientes] = await Promise.all([
       prisma.cashSession.findFirst({
         where: { tenantId, userId, status: 'OPEN' },
-        select: { id: true } 
+        select: { id: true }
       }),
       prisma.product.findMany({
         where: { tenantId },
-        select: { 
-          id: true, 
-          name: true, 
-          barcode: true, 
-          priceSale: true, 
-          isByWeight: true, 
-          stock: true 
-        }
+        select: { id: true, name: true, barcode: true, priceSale: true, isByWeight: true, stock: true }
+      }),
+      prisma.customer.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, balance: true },
+        orderBy: { name: 'asc' }
       })
     ]);
 
@@ -33,7 +31,8 @@ export async function GET() {
       tenantId,
       userId,
       isCajaAbierta: !!cajaAbierta,
-      catalogo
+      catalogo,
+      clientes 
     });
 
   } catch (error) {

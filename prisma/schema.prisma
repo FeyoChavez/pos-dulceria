@@ -9,32 +9,33 @@ datasource db {
 }
 
 model Tenant {
-  id        String    @id @default(uuid())
-  name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  users     User[]
-  products  Product[]
-  sales     Sale[]
+  id                 String              @id @default(uuid())
+  name               String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  users              User[]
+  products           Product[]
+  sales              Sale[]
+  customers          Customer[]
   inventoryMovements InventoryMovement[]
+  customerPayments   CustomerPayment[] 
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(CASHIER)
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sales     Sale[]
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  password           String
+  name               String
+  role               Role                @default(CASHIER)
+  tenantId           String
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales              Sale[]
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
   inventoryMovements InventoryMovement[]
-  cashSessions CashSession[]
-  refunds      Refund[]
+  cashSessions       CashSession[]
+  refunds            Refund[]
+  customerPayments   CustomerPayment[] 
 }
 
 enum Role {
@@ -43,18 +44,17 @@ enum Role {
 }
 
 model Product {
-  id         String   @id @default(uuid())
-  barcode    String?
-  name       String
-  priceCost  Float
-  priceSale  Float
-  stock      Float
-  isByWeight Boolean  @default(false)
-  tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
+  id                 String              @id @default(uuid())
+  barcode            String?
+  name               String
+  priceCost          Float
+  priceSale          Float
+  stock              Float
+  isByWeight         Boolean             @default(false)
+  tenantId           String
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   saleItems          SaleItem[]
   InventoryMovements InventoryMovement[]
 
@@ -62,20 +62,20 @@ model Product {
 }
 
 model Sale {
-  id            String     @id @default(uuid())
+  id            String       @id @default(uuid())
   total         Float
   paymentMethod String
   tenantId      String
-  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId        String
-  user          User       @relation(fields: [userId], references: [id])
+  user          User         @relation(fields: [userId], references: [id])
   items         SaleItem[]
-  createdAt     DateTime   @default(now())
+  createdAt     DateTime     @default(now())
   cashSessionId String?
-
-  refund Refund?
-
-  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
+  customerId    String?
+  refund        Refund?
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id])
+  customer      Customer?    @relation(fields: [customerId], references: [id])
 }
 
 model SaleItem {
@@ -88,63 +88,84 @@ model SaleItem {
   priceSnap Float
 }
 
-// corte de caja
 model CashSession {
-  id              String    @id @default(uuid())
-  tenantId        String
-  userId          String
-  openingBalance  Float // Dinero inicial (fondo)
-  closingBalance  Float? // Dinero físico reportado al cerrar
-  expectedBalance Float? // Dinero que el sistema calcula que debería haber
-  status          String    @default("OPEN") // OPEN o CLOSED
-  openedAt        DateTime  @default(now())
-  closedAt        DateTime?
-
-  user    User     @relation(fields: [userId], references: [id])
-  sales   Sale[] // Relación para saber qué ventas se hicieron en este turno
-  refunds Refund[]
+  id               String            @id @default(uuid())
+  tenantId         String
+  userId           String
+  openingBalance   Float
+  closingBalance   Float?
+  expectedBalance  Float?
+  status           String            @default("OPEN")
+  openedAt         DateTime          @default(now())
+  closedAt         DateTime?
+  user             User              @relation(fields: [userId], references: [id])
+  sales            Sale[]
+  refunds          Refund[]
+  customerPayments CustomerPayment[] 
 
   @@index([tenantId])
 }
 
 model Refund {
-  id      String  @id @default(uuid())
-  amount  Float // Monto devuelto (normalmente el total de la venta)
-  reason  String?
-  restock Boolean @default(true) // ¿El dulce regresó al estante o fue merma?
-
-  saleId String @unique
-  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
-
-  tenantId String
-
-  userId String // Usuario/Admin que autorizó la devolución
-  user   User   @relation(fields: [userId], references: [id])
-
-  cashSessionId String? // La caja activa de HOY de donde se sacó el dinero
+  id            String       @id @default(uuid())
+  amount        Float
+  reason        String?
+  restock       Boolean      @default(true)
+  saleId        String       @unique
+  sale          Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  tenantId      String
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  cashSessionId String?
   cashSession   CashSession? @relation(fields: [cashSessionId], references: [id])
-
-  createdAt DateTime @default(now())
+  createdAt     DateTime     @default(now())
 
   @@index([tenantId])
 }
 
 model InventoryMovement {
-  id          String   @id @default(uuid())
-  type        String   // "IN" (Entrada/Compra) o "OUT" (Salida/Merma)
-  quantity    Float    // Cantidad sumada o restada
-  reason      String   // Motivo detallado
-  
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  type      String
+  quantity  Float
+  reason    String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 
   @@index([tenantId, productId])
+}
+
+model Customer {
+  id        String            @id @default(uuid())
+  name      String
+  phone     String?
+  balance   Float             @default(0)
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sales     Sale[]
+  payments  CustomerPayment[] 
+  createdAt DateTime          @default(now())
+
+  @@index([tenantId, id])
+}
+
+model CustomerPayment {
+  id            String       @id @default(uuid())
+  amount        Float
+  paymentMethod String // "CASH" | "TRANSFER" | "CARD"
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  cashSessionId String?
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([tenantId, customerId])
 }

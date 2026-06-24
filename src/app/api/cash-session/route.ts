@@ -14,15 +14,14 @@ export async function GET() {
       where: { tenantId, userId, status: 'OPEN' },
       include: { 
         sales: true,
-        refunds: true 
+        refunds: true,
+        customerPayments: true 
       }
     });
 
-    if (!activeSession) {
-      return NextResponse.json({ isOpen: false });
-    }
+    if (!activeSession) return NextResponse.json({ isOpen: false });
 
-    // Calcular ventas
+    // Ventas de mostrador en efectivo
     const cashSales = activeSession.sales
       .filter(s => s.paymentMethod === 'CASH')
       .reduce((acc, s) => acc + s.total, 0);
@@ -31,11 +30,13 @@ export async function GET() {
       .filter(s => s.paymentMethod === 'CARD')
       .reduce((acc, s) => acc + s.total, 0);
 
-    // Calcular cuánto dinero salió por devoluciones
+    const cashAbonos = activeSession.customerPayments
+      .filter(p => p.paymentMethod === 'CASH')
+      .reduce((acc, p) => acc + p.amount, 0);
+
     const cashRefunds = activeSession.refunds.reduce((acc, r) => acc + r.amount, 0);
 
-    // Fondo + Ventas Efectivo - Devoluciones
-    const expectedBalance = activeSession.openingBalance + cashSales - cashRefunds;
+    const expectedBalance = activeSession.openingBalance + cashSales + cashAbonos - cashRefunds;
 
     return NextResponse.json({
       isOpen: true,
@@ -45,6 +46,7 @@ export async function GET() {
         openedAt: activeSession.openedAt,
         cashSales,
         cardSales,
+        cashAbonos, 
         cashRefunds, 
         expectedBalance
       }
@@ -83,7 +85,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newSession);
   } catch (error) {
-    // 🔥 AHORA SÍ VEREMOS EL ERROR EN LA TERMINAL
     console.error("ERROR REAL AL ABRIR CAJA:", error); 
     return NextResponse.json({ error: 'Error interno de la base de datos' }, { status: 500 });
   }
