@@ -13,7 +13,12 @@ export async function GET() {
     const activeSession = await prisma.cashSession.findFirst({
       where: { tenantId, userId, status: 'OPEN' },
       include: { 
-        sales: true,
+        sales: {
+          include: {
+            items: true,
+            refund: true
+          }
+        },
         refunds: true,
         customerPayments: true 
       }
@@ -21,22 +26,52 @@ export async function GET() {
 
     if (!activeSession) return NextResponse.json({ isOpen: false });
 
-    // Ventas de mostrador en efectivo
-    const cashSales = activeSession.sales
-      .filter(s => s.paymentMethod === 'CASH')
-      .reduce((acc, s) => acc + s.total, 0);
+    let cashSalesGross = 0; // Ventas brutas en efectivo
+    let cardSalesNet = 0;   // Ventas netas con tarjeta
+    let cashRefunds = 0;    // Total de dinero devuelto en efectivo
 
-    const cardSales = activeSession.sales
-      .filter(s => s.paymentMethod === 'CARD')
-      .reduce((acc, s) => acc + s.total, 0);
+    activeSession.sales.forEach(sale => {
+      // Calculamos cuánto valía el ticket originalmente (sin importar si luego se modificó)
+      const originalSaleTotal = sale.items.reduce((acc, item) => acc + (item.quantity * item.priceSnap), 0);
 
+      if (sale.paymentMethod === 'CASH') {
+        cashSalesGross += originalSaleTotal;
+
+        // Evaluamos qué dinero salió de la caja
+        if (sale.refund) {
+          // Si el ticket entero se anuló, sumamos el ticket completo a las devoluciones
+          cashRefunds += originalSaleTotal;
+        } else {
+          // Si el ticket sigue vivo, buscamos pieza por pieza cuáles se devolvieron
+          sale.items.forEach(item => {
+            if (item.refunded) {
+              cashRefunds += (item.quantity * item.priceSnap);
+            }
+          });
+        }
+      } else if (sale.paymentMethod === 'CARD') {
+        // Lógica similar para tarjetas 
+        let cardRefunds = 0;
+        if (sale.refund) {
+          cardRefunds = originalSaleTotal;
+        } else {
+          sale.items.forEach(item => {
+            if (item.refunded) cardRefunds += (item.quantity * item.priceSnap);
+          });
+        }
+        cardSalesNet += (originalSaleTotal - cardRefunds);
+      }
+    });
+
+    // Abonos de clientes fiados (dinero que entra a la caja física)
     const cashAbonos = activeSession.customerPayments
       .filter(p => p.paymentMethod === 'CASH')
       .reduce((acc, p) => acc + p.amount, 0);
 
-    const cashRefunds = activeSession.refunds.reduce((acc, r) => acc + r.amount, 0);
+    const legacyRefunds = activeSession.refunds ? activeSession.refunds.reduce((acc, r) => acc + r.amount, 0) : 0;
+    cashRefunds += legacyRefunds;
 
-    const expectedBalance = activeSession.openingBalance + cashSales + cashAbonos - cashRefunds;
+    const expectedBalance = activeSession.openingBalance + cashSalesGross + cashAbonos - cashRefunds;
 
     return NextResponse.json({
       isOpen: true,
@@ -44,15 +79,16 @@ export async function GET() {
         id: activeSession.id,
         openingBalance: activeSession.openingBalance,
         openedAt: activeSession.openedAt,
-        cashSales,
-        cardSales,
+        cashSales: cashSalesGross,
+        cardSales: cardSalesNet,
         cashAbonos, 
         cashRefunds, 
         expectedBalance
       }
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Error al obtener sesión de caja' }, { status: 500 });
+    console.error('Error al obtener sesión de caja:', error);
+    return NextResponse.json({ error: 'Error interno al calcular la caja' }, { status: 500 });
   }
 }
 
@@ -66,9 +102,6 @@ export async function POST(request: Request) {
   try {
     const { openingBalance } = await request.json();
     
-    // Log para ver si los datos de sesión están llegando bien
-    console.log("Intentando abrir caja:", { tenantId, userId, openingBalance });
-
     const existing = await prisma.cashSession.findFirst({
       where: { tenantId, userId, status: 'OPEN' }
     });
