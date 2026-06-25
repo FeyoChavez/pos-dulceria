@@ -7,15 +7,12 @@ export async function GET(request: Request) {
   if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const tenantId = (session.user as any).tenantId;
-
   const userId = session.user.id as string;
 
-  // Capturar los parámetros de fecha de la URL
   const { searchParams } = new URL(request.url);
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
 
-  // Construir el filtro de tiempo de Prisma
   const dateFilter: any = {};
   if (startDateStr) {
     dateFilter.gte = new Date(`${startDateStr}T00:00:00.000Z`);
@@ -39,7 +36,10 @@ export async function GET(request: Request) {
         items: {
           include: {
             product: {
-              select: { name: true }
+              select: { 
+                name: true,
+                isByWeight: true
+               }
             }
           }
         },
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
       if (!activeSession) throw new Error('Caja_Cerrada');
 
-      // 1. Crear la venta vinculando al cliente si es crédito
+      // Crear la venta vinculando al cliente si es credito
       const nuevaVenta = await tx.sale.create({
         data: {
           total,
@@ -93,13 +93,13 @@ export async function POST(request: Request) {
             create: cart.map((item: any) => ({
               productId: item.id,
               quantity: item.quantity,
-              priceSnap: item.priceSale
+              priceSnap: item.quantity > 0 ? Number((item.subtotal / item.quantity).toFixed(2)) : item.priceSale
             }))
           }
         }
       });
 
-      // 2. Operaciones Contables específicas por método de pago
+      // Operaciones Contables específicas por método de pago
       const operaciones = [
         ...cart.map((item: any) => 
           tx.product.update({
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       ];
 
       if (paymentMethod === 'CREDIT') {
-        // Si es crédito, restamos el dinero de su balance (acumula deuda negativa)
+        // Si es credito, restamos el dinero de su balance (acumula deuda negativa)
         operaciones.push(
           tx.customer.update({
             where: { id: customerId },
@@ -141,4 +141,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Error procesando la venta' }, { status: 500 });
   }
 }
-
