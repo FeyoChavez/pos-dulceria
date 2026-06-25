@@ -10,6 +10,30 @@ interface SearchModalProps {
 export default function SearchModal({ isOpen, results, onSelect, onClose }: SearchModalProps) {
   if (!isOpen) return null;
 
+  const getPromoIndicator = (product: any) => {
+    const ahora = new Date();
+    const hasDiscount = product.discountPercent && (!product.discountEndDate || new Date(product.discountEndDate) >= ahora);
+    const hasWholesale = product.priceWholesale && product.minWholesaleQty;
+
+    if (hasDiscount) {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200 tracking-wider uppercase ml-2">
+          -{product.discountPercent}% OFF
+        </span>
+      );
+    }
+
+    if (hasWholesale) {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-200 tracking-wider uppercase ml-2">
+          Mayoreo {product.minWholesaleQty}+
+        </span>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm print:hidden">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-zinc-100">

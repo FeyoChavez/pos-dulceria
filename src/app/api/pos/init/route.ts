@@ -19,7 +19,18 @@ export async function GET() {
       }),
       prisma.product.findMany({
         where: { tenantId },
-        select: { id: true, name: true, barcode: true, priceSale: true, isByWeight: true, stock: true }
+        select: {
+        id: true,
+        name: true,
+        barcode: true,
+        priceSale: true,
+        stock: true,
+        isByWeight: true,
+        priceWholesale: true,
+        minWholesaleQty: true,
+        discountPercent: true,
+        discountEndDate: true
+      }
       }),
       prisma.customer.findMany({
         where: { tenantId },

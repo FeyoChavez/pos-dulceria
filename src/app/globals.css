@@ -30,6 +30,9 @@ body {
     size: 80mm auto;
     margin: 0;
   }
+  .Toastify {
+    display: none !important;
+  }
   
   /* Forzamos a que todo el documento pueda crecer hacia abajo sin cortarse */
   html, body, main {
@@ -38,3 +41,4 @@ body {
     background-color: white !important;
   }
 }
+

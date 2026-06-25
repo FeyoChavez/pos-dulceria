@@ -9,7 +9,7 @@ import 'react-toastify/dist/ReactToastify.css';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Mi POS Dulcería",
+  title: "MyPOS",
   description: "Punto de venta",
 };
 
@@ -20,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
 
         <ToastContainer 
+          className="print:hidden"        
           position="top-right" 
           autoClose={3500} 
           hideProgressBar={false}

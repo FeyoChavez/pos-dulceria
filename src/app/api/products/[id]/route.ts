@@ -32,6 +32,11 @@ export async function PUT(
         priceCost: Number(priceCost),
         priceSale: Number(priceSale),
         isByWeight: Boolean(isByWeight),
+
+        priceWholesale: body.priceWholesale,
+        minWholesaleQty: body.minWholesaleQty,
+        discountPercent: body.discountPercent,
+        discountEndDate: body.discountEndDate,
       }
     });
 

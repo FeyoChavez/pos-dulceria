@@ -9,6 +9,8 @@ import SearchModal from "./components/SearchModal";
 import PaymentSelector, { Customer } from "./components/PaymentSelector";
 import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
+import { toast } from "react-toastify"; 
+import WeightInputModal from "./components/WeightInputModal";
 
 interface CartItem {
   id: string;
@@ -19,7 +21,29 @@ interface CartItem {
   quantity: number;
   subtotal: number;
   stock: number;
+  priceWholesale?: number | null;
+  minWholesaleQty?: number | null;
+  discountPercent?: number | null;
+  discountEndDate?: string | null;
 }
+
+const calcularPrecioUnitarioReal = (item: any, qty: number): number => {
+  const ahora = new Date();
+
+  if (item.discountPercent && item.discountPercent > 0) {
+    const sigueVigente = !item.discountEndDate || ahora <= new Date(item.discountEndDate);
+    if (sigueVigente) {
+      const factor = (100 - item.discountPercent) / 100;
+      return item.priceSale * factor;
+    }
+  }
+
+  if (item.priceWholesale && item.minWholesaleQty && qty >= item.minWholesaleQty) {
+    return item.priceWholesale;
+  }
+
+  return item.priceSale;
+};
 
 export default function PosPage() {
   const [appStatus, setAppStatus] = useState<'LOADING' | 'LOCKED' | 'READY'>('LOADING');
@@ -29,7 +53,6 @@ export default function PosPage() {
   const [tenantLocal, setTenantLocal] = useState<any | null>(null);
   const [userId, setUserId] = useState('');
 
-  // Estados de Carrito y Transacción
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'TRANSFER' | 'CREDIT'>('CASH'); 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null); 
@@ -43,6 +66,8 @@ export default function PosPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const totalVenta = cart.reduce((acc, item) => acc + item.subtotal, 0);
 
+  const [weightModalData, setWeightModalData] = useState<{ isOpen: boolean; product: any | null }>({ isOpen: false, product: null });
+
   useEffect(() => {
     fetch('/api/pos/init')
       .then(res => res.json())
@@ -55,12 +80,13 @@ export default function PosPage() {
         setUserId(data.userId);
         setCatalogoLocal(data.catalogo || []);
         setClientesLocal(data.clientes || []);
-
         setTenantLocal(data.tenant || null);
-        
         setAppStatus('READY');
       })
-      .catch(() => setAppStatus('LOCKED'));
+      .catch(() => {
+        setAppStatus('LOCKED');
+        toast.error("Error al conectar con la caja.");
+      });
   }, []);
 
   useEffect(() => {
@@ -102,36 +128,84 @@ export default function PosPage() {
 
     if (coincidencias.length === 1) { addToCart(coincidencias[0]); setSearchInput(""); } 
     else if (coincidencias.length > 1) { setSearchResults(coincidencias); setIsModalOpen(true); } 
-    else { alert(`No encontrado: "${searchInput.trim()}"`); }
+    else { toast.warning(`No encontrado: "${searchInput.trim()}"`); } 
   };
 
+  // agregar al carrito
   const addToCart = (product: any) => {
+    if (product.isByWeight) {
+      setWeightModalData({ isOpen: true, product });
+    } else {
+      // Producto normal por piezas, entra con 1 unidad
+      processAddToCart(product, 1);
+    }
+  };
+  // actualiza el carrito
+  const processAddToCart = (product: any, qtyToAdd: number) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === product.id);
-      const addedQuantity = product.isByWeight ? 0.25 : 1;
       
       if (existing) {
-        if (existing.quantity + addedQuantity > product.stock) return prev;
+        const nuevaQty = existing.quantity + qtyToAdd;
+        if (nuevaQty > product.stock) {
+          toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
+          return prev;
+        }
+
+        const precioUnitario = calcularPrecioUnitarioReal(product, nuevaQty);
+
         return prev.map((item) => item.id === product.id
-          ? { ...item, quantity: item.quantity + addedQuantity, subtotal: (item.quantity + addedQuantity) * item.priceSale }
+          ? { ...item, quantity: nuevaQty, subtotal: Number((nuevaQty * precioUnitario).toFixed(2)) }
           : item
         );
       }
-      if (addedQuantity > product.stock) return prev;
+
+      if (qtyToAdd > product.stock) {
+        toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
+        return prev;
+      }
+
+      const precioUnitario = calcularPrecioUnitarioReal(product, qtyToAdd);
+
       return [...prev, {
-        id: product.id, name: product.name, barcode: product.barcode,
-        priceSale: product.priceSale, isByWeight: product.isByWeight,
-        quantity: addedQuantity, subtotal: addedQuantity * product.priceSale, stock: product.stock 
+        id: product.id, name: product.name, barcode: product.barcode, priceSale: product.priceSale, 
+        isByWeight: product.isByWeight, quantity: qtyToAdd, subtotal: Number((qtyToAdd * precioUnitario).toFixed(2)), 
+        stock: product.stock, priceWholesale: product.priceWholesale, minWholesaleQty: product.minWholesaleQty,
+        discountPercent: product.discountPercent, discountEndDate: product.discountEndDate
       }];
     });
   };
 
   const updateQuantity = (id: string, amount: number) => {
+    const existing = cart.find(item => item.id === id);
+    if (!existing) return;
+
+    const newQty = Math.max(existing.isByWeight ? 0.05 : 1, existing.quantity + amount);
+    
+    if (newQty > existing.stock) {
+      toast.warning("Límite de inventario alcanzado");
+      return;
+    }
+
+    const precioUnitario = calcularPrecioUnitarioReal(existing, newQty);
+
+    setCart(cart.map((item) =>
+      item.id === id
+        ? { ...item, quantity: newQty, subtotal: Number((newQty * precioUnitario).toFixed(2)) }
+        : item
+    ));
+  };
+
+  // modificar state de cantidad/peso
+  const setExactQuantity = (id: string, exactQty: number) => {
     setCart((prev) => prev.map((item) => {
       if (item.id === id) {
-        const newQty = Math.max(item.isByWeight ? 0.05 : 1, item.quantity + amount);
-        if (newQty > item.stock) return item;
-        return { ...item, quantity: newQty, subtotal: newQty * item.priceSale };
+        if (exactQty > item.stock) {
+          toast.warning(`Solo quedan ${item.stock} disponibles en inventario.`);
+          return item; 
+        }
+        const precioUnitario = calcularPrecioUnitarioReal(item, exactQty);
+        return { ...item, quantity: exactQty, subtotal: Number((exactQty * precioUnitario).toFixed(2)) };
       }
       return item;
     }));
@@ -142,12 +216,13 @@ export default function PosPage() {
   const handleCobrar = async () => {
     if (cart.length === 0 || isCobrando) return;
     if (paymentMethod === 'CREDIT' && !selectedCustomer) {
-      alert('Por favor selecciona un deudor de la libreta para poder fiar la cuenta.');
+      toast.warning('Selecciona un deudor de la libreta para poder fiar la cuenta.'); 
       return;
     }
     
     const snapshotCart = [...cart];
     const snapshotTotal = totalVenta;
+    const toastId = toast.loading("Procesando pago..."); 
 
     setTicketData({ cart: snapshotCart, total: snapshotTotal, date: new Date() });
     setCart([]);
@@ -165,11 +240,18 @@ export default function PosPage() {
           userId 
         }),
       }).then((res) => {
-        if (!res.ok) console.error("Error al registrar venta.");
+        if (!res.ok) {
+          toast.update(toastId, { render: "Error al registrar la venta en la base de datos.", type: "error", isLoading: false, autoClose: 4000 });
+        } else {
+          toast.update(toastId, { render: "¡Venta cobrada con éxito!", type: "success", isLoading: false, autoClose: 2000 });
+        }
         setPaymentMethod('CASH');
         setSelectedCustomer(null);
       });
-    } catch (error) { console.error("Error de red:", error); } 
+    } catch (error) { 
+      console.error("Error de red:", error); 
+      toast.update(toastId, { render: "Error de red al cobrar.", type: "error", isLoading: false, autoClose: 4000 });
+    } 
     finally { setIsCobrando(false); }
   };
 
@@ -186,7 +268,7 @@ export default function PosPage() {
               <SearchBar value={searchInput} onChange={setSearchInput} onSubmit={handleSearchSubmit} inputRef={searchInputRef} placeholder="Escanea código de barras o teclea el dulce..." />
             </div>
             <div className="flex-1 overflow-x-auto">
-              <CartTable cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />
+              <CartTable cart={cart} updateQuantity={updateQuantity} setExactQuantity={setExactQuantity} removeFromCart={removeFromCart} />
             </div>
           </div>
           
@@ -204,10 +286,25 @@ export default function PosPage() {
 
         </div>
         <SearchModal isOpen={isModalOpen} results={searchResults} onSelect={product => { addToCart(product); setIsModalOpen(false); setSearchInput(""); setTimeout(() => searchInputRef.current?.focus(), 50); }} onClose={() => { setIsModalOpen(false); setSearchInput(""); setTimeout(() => searchInputRef.current?.focus(), 50); }} />
+        
+        <WeightInputModal 
+          isOpen={weightModalData.isOpen}
+          productName={weightModalData.product?.name || ''}
+          onClose={() => {
+            setWeightModalData({ isOpen: false, product: null });
+            setTimeout(() => searchInputRef.current?.focus(), 50); 
+          }}
+          onSubmit={(peso) => {
+            setWeightModalData({ isOpen: false, product: null });
+            processAddToCart(weightModalData.product, peso); 
+            setTimeout(() => searchInputRef.current?.focus(), 50);
+          }}
+        />
       </div>
 
       <div className="hidden print:block">{ticketData && <div id="ticket-print-container"><Ticket cart={ticketData.cart} total={ticketData.total} date={ticketData.date} tenant={tenantLocal} /></div>}
       </div>
+      
     </>
   );
 }

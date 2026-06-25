@@ -38,6 +38,11 @@ export async function POST(request: Request) {
         stock: Number(stock),
         isByWeight: Boolean(isByWeight),
         tenantId,
+
+        priceWholesale: body.priceWholesale,
+        minWholesaleQty: body.minWholesaleQty,
+        discountPercent: body.discountPercent,
+        discountEndDate: body.discountEndDate,
       },
     });
 
