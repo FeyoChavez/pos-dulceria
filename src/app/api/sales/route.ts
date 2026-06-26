@@ -15,10 +15,10 @@ export async function GET(request: Request) {
 
   const dateFilter: any = {};
   if (startDateStr) {
-    dateFilter.gte = new Date(`${startDateStr}T00:00:00.000Z`);
+    dateFilter.gte = new Date(`${startDateStr}T00:00:00.000-06:00`);
   }
   if (endDateStr) {
-    dateFilter.lte = new Date(`${endDateStr}T23:59:59.999Z`);
+    dateFilter.lte = new Date(`${endDateStr}T23:59:59.999-06:00`);
   }
 
   try {
