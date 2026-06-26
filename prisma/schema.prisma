@@ -115,7 +115,9 @@ model CashSession {
   user             User              @relation(fields: [userId], references: [id])
   sales            Sale[]
   refunds          Refund[]
+  
   customerPayments CustomerPayment[] 
+  expenses Expense[]
 
   @@index([tenantId])
 }
@@ -182,4 +184,17 @@ model CustomerPayment {
   createdAt     DateTime     @default(now())
 
   @@index([tenantId, customerId])
+}
+
+model Expense {
+  id            String      @id @default(cuid())
+  concept       String      
+  amount        Float
+  createdAt     DateTime    @default(now())
+  
+  tenantId      String
+  userId        String      // Quién sacó el dinero
+  
+  cashSessionId String?     // A qué turno de caja se le resto
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id])
 }

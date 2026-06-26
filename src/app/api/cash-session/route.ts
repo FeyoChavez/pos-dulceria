@@ -20,7 +20,8 @@ export async function GET() {
           }
         },
         refunds: true,
-        customerPayments: true 
+        customerPayments: true,
+        expenses: true 
       }
     });
 
@@ -63,15 +64,19 @@ export async function GET() {
       }
     });
 
-    // Abonos de clientes fiados (dinero que entra a la caja física)
+    // Abonos a credito 
     const cashAbonos = activeSession.customerPayments
       .filter(p => p.paymentMethod === 'CASH')
       .reduce((acc, p) => acc + p.amount, 0);
 
+    const totalExpenses = activeSession.expenses
+      ? activeSession.expenses.reduce((acc, e) => acc + e.amount, 0)
+      : 0;
+
     const legacyRefunds = activeSession.refunds ? activeSession.refunds.reduce((acc, r) => acc + r.amount, 0) : 0;
     cashRefunds += legacyRefunds;
 
-    const expectedBalance = activeSession.openingBalance + cashSalesGross + cashAbonos - cashRefunds;
+    const expectedBalance = activeSession.openingBalance + cashSalesGross + cashAbonos - cashRefunds - totalExpenses;
 
     return NextResponse.json({
       isOpen: true,
@@ -82,7 +87,9 @@ export async function GET() {
         cashSales: cashSalesGross,
         cardSales: cardSalesNet,
         cashAbonos, 
-        cashRefunds, 
+        cashRefunds,
+        totalExpenses,
+        expensesList: activeSession.expenses || [], 
         expectedBalance
       }
     });
@@ -112,6 +119,7 @@ export async function POST(request: Request) {
         tenantId,
         userId: userId!,
         openingBalance: Number(openingBalance),
+        expectedBalance: Number(openingBalance),
         status: 'OPEN'
       }
     });
