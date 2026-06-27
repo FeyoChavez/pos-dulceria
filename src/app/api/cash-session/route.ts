@@ -21,7 +21,8 @@ export async function GET() {
         },
         refunds: true,
         customerPayments: true,
-        expenses: true 
+        expenses: true,
+        purchases: true, 
       }
     });
 
@@ -73,8 +74,14 @@ export async function GET() {
       ? activeSession.expenses.reduce((acc, e) => acc + e.amount, 0)
       : 0;
 
+    const totalPurchasesFromRegister = activeSession.purchases
+      ? activeSession.purchases.reduce((acc, p) => acc + p.total, 0)
+      : 0;
+
     const legacyRefunds = activeSession.refunds ? activeSession.refunds.reduce((acc, r) => acc + r.amount, 0) : 0;
     cashRefunds += legacyRefunds;
+
+    
 
     const expectedBalance = activeSession.openingBalance + cashSalesGross + cashAbonos - cashRefunds - totalExpenses;
 
@@ -88,7 +95,7 @@ export async function GET() {
         cardSales: cardSalesNet,
         cashAbonos, 
         cashRefunds,
-        totalExpenses,
+        totalExpenses: totalExpenses + totalPurchasesFromRegister,
         expensesList: activeSession.expenses || [], 
         expectedBalance
       }

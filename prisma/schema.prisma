@@ -67,6 +67,7 @@ model Product {
   discountEndDate  DateTime? // Vence el domingo a las 23:59:59. El lunes se borra solo.
 
   saleItems          SaleItem[]
+  purchaseItems      PurchaseItem[]
   InventoryMovements InventoryMovement[]
 
     tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -116,8 +117,9 @@ model CashSession {
   sales            Sale[]
   refunds          Refund[]
   
-  customerPayments CustomerPayment[] 
-  expenses Expense[]
+  customerPayments  CustomerPayment[] 
+  expenses          Expense[]
+  purchases         Purchase[]
 
   @@index([tenantId])
 }
@@ -197,4 +199,61 @@ model Expense {
   
   cashSessionId String?     // A qué turno de caja se le resto
   cashSession   CashSession? @relation(fields: [cashSessionId], references: [id])
+}
+
+// MODULO DE COMPRAS Y PROVEEDORES
+model Supplier {
+  id          String     @id @default(cuid())
+  name        String     
+  phone       String?
+  email       String?
+  address     String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  tenantId    String
+  purchases   Purchase[]
+}
+
+model Purchase {
+  id            String            @id @default(cuid())
+  total         Float             
+  status        String            
+  createdAt     DateTime          @default(now())
+  
+  tenantId      String
+  userId        String            
+  
+  supplierId    String
+  supplier      Supplier          @relation(fields: [supplierId], references: [id])
+  
+  items         PurchaseItem[]
+  payments      PurchasePayment[]
+  
+  cashSessionId String?           
+  cashSession   CashSession?      @relation(fields: [cashSessionId], references: [id])
+}
+
+model PurchaseItem {
+  id            String   @id @default(cuid())
+  quantity      Float    // Usamos Float por si compran mercancía a granel (ej. 2.5 kg)
+  costPrice     Float    //  El precio de COSTO (lo que cobró el proveedor), NO el de venta
+  
+  purchaseId    String
+  purchase      Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+}
+
+model PurchasePayment {
+  id            String   @id @default(cuid())
+  amount        Float
+  paymentMethod String   // 'CASH', 'TRANSFER', 'CARD'
+  createdAt     DateTime @default(now())
+  
+  tenantId      String
+  
+  purchaseId    String
+  purchase      Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 }
