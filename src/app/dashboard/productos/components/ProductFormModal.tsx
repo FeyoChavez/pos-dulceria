@@ -179,13 +179,12 @@ export default function ProductFormModal({ isOpen, product, onClose, onSuccess }
                       />
                     </div>
                     <div>
-                      {/* 🔥 AQUI ESTA LA MAGIA DE UX PARA LA ETIQUETA Y EL TIPO DE INPUT */}
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">
                         A partir de ({formData.isByWeight ? 'Kg' : 'Uds'})
                       </label>
                       <input
                         type="number" 
-                        step={formData.isByWeight ? "any" : "1"} // 🔥 Si es granel permite decimales, si no, solo enteros
+                        step={formData.isByWeight ? "any" : "1"} 
                         placeholder={formData.isByWeight ? "Ej: 1.5" : "Ej: 6"}
                         value={formData.minWholesaleQty} onChange={e => setFormData({...formData, minWholesaleQty: e.target.value})}
                         className="w-full px-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-zinc-900"

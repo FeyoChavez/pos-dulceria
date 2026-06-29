@@ -145,13 +145,13 @@ export async function POST(request: Request) {
         })
       );
       
-      // Fallback seguro si tu propiedad schema usa estructura plana de decremento/incremento nativo
       const updatesStockPlano = items.map((item: any) =>
         tx.product.update({
           where: { id: item.productId },
           data: { 
             stock: { increment: Number(item.quantity) },
-            cost: Number(item.costPrice) }
+            priceCost: Number(item.costPrice) 
+          }
         })
       );
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowDownToLine, Lock } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface PurchaseSummaryBarProps {
   total: number;
@@ -15,12 +16,12 @@ export default function PurchaseSummaryBar({ total, itemCount, onSubmit, isSubmi
       <div>
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest block">Inversión Total en Mercancía</span>
         <div className="flex items-baseline gap-2 mt-0.5">
-          <span className="text-3xl font-black font-mono tracking-tight">${total.toFixed(2)}</span>
+          <span className="text-3xl font-black font-mono tracking-tight">{formatMoney(total)}</span>
           <span className="text-xs text-zinc-400 font-medium">({itemCount} renglones)</span>
         </div>
       </div>
 
-      <button
+      <button 
         type="button" 
         onClick={onSubmit} 
         disabled={disabled || isSubmitting}

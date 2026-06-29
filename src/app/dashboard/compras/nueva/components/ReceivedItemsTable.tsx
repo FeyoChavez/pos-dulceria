@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, PackageOpen } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface CartItem {
   product: any;
@@ -66,7 +67,7 @@ export default function ReceivedItemsTable({ items, onUpdateQty, onUpdateCost, o
                   </td>
 
                   <td className="px-5 py-3.5 text-right font-mono font-black text-zinc-900">
-                    ${subtotal.toFixed(2)}
+                    {formatMoney(subtotal)}
                   </td>
 
                   <td className="px-5 py-3.5 text-right">
