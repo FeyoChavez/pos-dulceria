@@ -1,5 +1,6 @@
 import React from 'react';
 import { Package, Eye, Building2, Calendar, CreditCard } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface PurchasesTableProps {
   purchases: any[];
@@ -80,7 +81,7 @@ export default function PurchasesTable({ purchases, isLoading, onSelect }: Purch
                   </td>
 
                   <td className="px-6 py-4 text-right font-mono font-black text-sm text-zinc-950">
-                    ${pur.total.toFixed(2)}
+                    {formatMoney(pur.total)}
                   </td>
 
                   <td className="px-6 py-4 text-center">

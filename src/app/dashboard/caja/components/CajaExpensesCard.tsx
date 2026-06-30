@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { ArrowDownRight, Plus, Receipt } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 export default function CajaExpensesCard({ expensesList }: { expensesList?: any[] }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -70,7 +71,7 @@ export default function CajaExpensesCard({ expensesList }: { expensesList?: any[
                   <p className="text-[10px] text-zinc-400 font-mono">{new Date(gasto.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
-              <span className="font-mono font-black text-amber-900 text-sm">-${gasto.amount.toFixed(2)}</span>
+              <span className="font-mono font-black text-amber-900 text-sm">-{formatMoney(gasto.amount)}</span>
             </div>
           ))
         )}

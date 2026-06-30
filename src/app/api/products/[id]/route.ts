@@ -11,11 +11,14 @@ export async function PUT(
     if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     
     const tenantId = (session.user as any).tenantId;
-
     const { id } = await params;
-
     const body = await request.json();
-    const { name, barcode, priceCost, priceSale, isByWeight } = body;
+    
+    const { 
+      name, barcode, priceCost, priceSale, isByWeight,
+      priceWholesale, minWholesaleQty, discountPercent, discountEndDate,
+      parentId, conversionFactor
+    } = body;
 
     if (!name || priceCost === undefined || priceSale === undefined) {
       return NextResponse.json({ error: 'Faltan campos mandatorios (Nombre, Costo o Venta)' }, { status: 400 });
@@ -33,10 +36,13 @@ export async function PUT(
         priceSale: Number(priceSale),
         isByWeight: Boolean(isByWeight),
 
-        priceWholesale: body.priceWholesale,
-        minWholesaleQty: body.minWholesaleQty,
-        discountPercent: body.discountPercent,
-        discountEndDate: body.discountEndDate,
+        priceWholesale: priceWholesale ? Number(priceWholesale) : null,
+        minWholesaleQty: minWholesaleQty ? Number(minWholesaleQty) : null,
+        discountPercent: discountPercent ? Number(discountPercent) : null,
+        discountEndDate: discountEndDate ? new Date(discountEndDate) : null,
+
+        parentId: parentId || null,
+        conversionFactor: conversionFactor ? Number(conversionFactor) : null
       }
     });
 
@@ -49,21 +55,26 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: Request, 
+  request: Request,
   { params }: { params: Promise<{ id: string }> } 
 ) {
-
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-
-  const { id } = await params;
-
   try {
-    await prisma.product.delete({
-      where: { id, tenantId: (session.user as any).tenantId },
+    const session = await auth();
+    if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    
+    const tenantId = (session.user as any).tenantId;
+    const { id } = await params;
+
+    // soft delete
+    await prisma.product.update({
+      where: { id, tenantId },
+      data: { isActive: false }
     });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Error al eliminar producto' }, { status: 500 });
+
+    return NextResponse.json({ success: true, message: 'Producto archivado correctamente' });
+
+  } catch (error: any) {
+    console.error("Error archivando producto:", error);
+    return NextResponse.json({ error: 'Error interno al intentar archivar el producto' }, { status: 500 });
   }
 }

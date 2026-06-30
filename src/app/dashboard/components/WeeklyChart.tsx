@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/utils/format';
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -21,7 +22,7 @@ export default function WeeklyChart({ chartData }: WeeklyChartProps) {
             <YAxis stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} />
             <Tooltip 
               contentStyle={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e4e4e7', fontSize: '13px' }}
-              formatter={(value: any) => [`$${Number(value).toFixed(2)}`]}
+              formatter={(value: any) => [`${formatMoney(value)}`]}
             />
             <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
             <Bar name="Venta Bruta" dataKey="ventas" fill="#18181b" radius={[4, 4, 0, 0]} maxBarSize={45} />

@@ -1,5 +1,6 @@
 import React from 'react';
 import { DollarSign, CreditCard, Send, Clock } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface PaymentBreakdownProps {
   desglose: {
@@ -35,7 +36,7 @@ export default function PaymentBreakdown({ desglose }: PaymentBreakdownProps) {
             <span className="flex items-center gap-1.5 text-zinc-700">
               <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Efectivo
             </span>
-            <span className="text-zinc-900">${desglose.CASH.toFixed(2)}</span>
+            <span className="text-zinc-900">{formatMoney(desglose.CASH)}</span>
           </div>
           <div className="w-full bg-zinc-100 rounded-full h-2 overflow-hidden">
             <div className="bg-emerald-500 h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${getPercent(desglose.CASH)}%` }} />
@@ -48,7 +49,7 @@ export default function PaymentBreakdown({ desglose }: PaymentBreakdownProps) {
             <span className="flex items-center gap-1.5 text-zinc-700">
               <CreditCard className="w-3.5 h-3.5 text-blue-500" /> Tarjeta (Terminal)
             </span>
-            <span className="text-zinc-900">${desglose.CARD.toFixed(2)}</span>
+            <span className="text-zinc-900">{formatMoney(desglose.CARD)}</span>
           </div>
           <div className="w-full bg-zinc-100 rounded-full h-2 overflow-hidden">
             <div className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${getPercent(desglose.CARD)}%` }} />
@@ -61,7 +62,7 @@ export default function PaymentBreakdown({ desglose }: PaymentBreakdownProps) {
             <span className="flex items-center gap-1.5 text-zinc-700">
               <Send className="w-3.5 h-3.5 text-purple-500" /> Transferencia (SPEI)
             </span>
-            <span className="text-zinc-900">${desglose.TRANSFER.toFixed(2)}</span>
+            <span className="text-zinc-900">{formatMoney(desglose.TRANSFER)}</span>
           </div>
           <div className="w-full bg-zinc-100 rounded-full h-2 overflow-hidden">
             <div className="bg-purple-500 h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${getPercent(desglose.TRANSFER)}%` }} />
@@ -76,7 +77,7 @@ export default function PaymentBreakdown({ desglose }: PaymentBreakdownProps) {
           <Clock className="w-4 h-4" />
           <span className="text-xs font-bold">Mercancía dada a crédito</span>
         </div>
-        <span className="text-xs font-black text-amber-700">${desglose.CREDIT.toFixed(2)}</span>
+        <span className="text-xs font-black text-amber-700">{formatMoney(desglose.CREDIT)}</span>
       </div>
 
     </div>

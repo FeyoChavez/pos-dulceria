@@ -1,5 +1,6 @@
 import React from 'react';
 import { Building2, Calendar, Package, X } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface PurchaseDetailModalProps {
   purchase: any | null;
@@ -37,11 +38,11 @@ export default function PurchaseDetailModal({ purchase, onClose }: PurchaseDetai
                 </div>
                 <div className="truncate">
                   <p className="font-bold text-zinc-900 truncate text-sm">{item.product.name}</p>
-                  <p className="text-[11px] text-zinc-400 font-mono">Costo unitario pactado: ${item.costPrice.toFixed(2)}</p>
+                  <p className="text-[11px] text-zinc-400 font-mono">Costo unitario pactado: {formatMoney(item.costPrice)}</p>
                 </div>
               </div>
               <span className="font-mono font-black text-zinc-900 text-sm shrink-0">
-                ${(item.quantity * item.costPrice).toFixed(2)}
+                {formatMoney(item.quantity * item.costPrice)}
               </span>
             </div>
           ))}
@@ -59,7 +60,7 @@ export default function PurchaseDetailModal({ purchase, onClose }: PurchaseDetai
           </div>
           <div className="text-right">
             <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Total de la Nota</span>
-            <p className="text-2xl font-black font-mono text-zinc-950 mt-0.5">${purchase.total.toFixed(2)}</p>
+            <p className="text-2xl font-black font-mono text-zinc-950 mt-0.5">{formatMoney(purchase.total)}</p>
           </div>
         </div>
 

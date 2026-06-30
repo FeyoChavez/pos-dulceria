@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/utils/format';
 import React from 'react';
 
 interface AuditDetailPanelProps {
@@ -39,36 +40,36 @@ export default function AuditDetailPanel({ session }: AuditDetailPanelProps) {
             ? '✓ Caja auditada y cuadrada perfectamente.' 
             : session.difference < 0 
               ? `⚠ Alerta: Faltante de efectivo por $${Math.abs(session.difference).toFixed(2)}.` 
-              : `⚠ Alerta: Sobrante no justificado por $${session.difference.toFixed(2)}.`}
+              : `⚠ Alerta: Sobrante no justificado por ${formatMoney(session.difference)}`}
         </div>
 
         {/* DESGLOSE CONTABLE */}
         <div className="space-y-2.5 text-sm text-zinc-600 border-b border-zinc-100 pb-4">
-          <div className="flex justify-between"><span>Fondo Inicial:</span><span className="font-semibold text-zinc-900">${(session.openingBalance || 0).toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Ventas Efectivo:</span><span className="font-semibold text-zinc-900">${(session.cashSales || 0).toFixed(2)}</span></div>
-          <div className="flex justify-between"><span>Ventas Tarjeta:</span><span className="font-semibold text-zinc-900">${(session.cardSales || 0).toFixed(2)}</span></div>
+          <div className="flex justify-between"><span>Fondo Inicial:</span><span className="font-semibold text-zinc-900">{formatMoney(session.openingBalance) || 0}</span></div>
+          <div className="flex justify-between"><span>Ventas Efectivo:</span><span className="font-semibold text-zinc-900">{formatMoney(session.cashSales) || 0}</span></div>
+          <div className="flex justify-between"><span>Ventas Tarjeta:</span><span className="font-semibold text-zinc-900">{formatMoney(session.cardSales) || 0}</span></div>
           
           {session.totalRefunded > 0 && (
             <div className="flex justify-between text-red-600">
               <span>Devoluciones (Salida):</span>
-              <span className="font-mono font-bold">-${session.totalRefunded.toFixed(2)}</span>
+              <span className="font-mono font-bold">-{formatMoney(session.totalRefunded)}</span>
             </div>
           )}
 
           {session.totalExpenses > 0 && (
             <div className="flex justify-between text-amber-700 font-medium">
               <span>Gastos (Caja Chica):</span>
-              <span className="font-mono font-bold">-${session.totalExpenses.toFixed(2)}</span>
+              <span className="font-mono font-bold">-{formatMoney(session.totalExpenses)}</span>
             </div>
           )}
 
           <div className="flex justify-between border-t border-dashed pt-2 font-bold text-zinc-900">
-            <span>Ventas Netas Turno:</span><span>${totalNeto.toFixed(2)} ({session.salesCount} tkts)</span>
+            <span>Ventas Netas Turno:</span><span>{formatMoney(totalNeto)} ({session.salesCount} tkts)</span>
           </div>
 
           <div className="flex justify-between text-xs text-zinc-400 pt-0.5">
             <span>Efectivo físico meta:</span>
-            <span className="font-mono font-bold text-zinc-600">${(session.expectedBalance || 0).toFixed(2)}</span>
+            <span className="font-mono font-bold text-zinc-600">{formatMoney(session.expectedBalance) || 0}</span>
           </div>
         </div>
 
@@ -81,7 +82,7 @@ export default function AuditDetailPanel({ session }: AuditDetailPanelProps) {
             {allItems.map((item: any, idx: number) => (
               <div key={idx} className="flex justify-between items-center text-xs bg-zinc-50 p-2 rounded-lg border border-zinc-100">
                 <span className="font-medium text-zinc-800 max-w-[170px] truncate" title={item.product.name}>{item.product.name}</span>
-                <span className="text-zinc-500 font-mono">x{item.quantity} (${item.priceSnap.toFixed(2)})</span>
+                <span className="text-zinc-500 font-mono">x{item.quantity} ({formatMoney(item.priceSnap)})</span>
               </div>
             ))}
             {allItems.length === 0 && (
@@ -107,7 +108,7 @@ export default function AuditDetailPanel({ session }: AuditDetailPanelProps) {
                     </p>
                   </div>
                   <span className="font-mono font-black text-amber-900 shrink-0">
-                    -${exp.amount.toFixed(2)}
+                    -{formatMoney(exp.amount)}
                   </span>
                 </div>
               ))}

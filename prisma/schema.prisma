@@ -54,10 +54,13 @@ model Product {
   id                 String              @id @default(uuid())
   barcode            String?
   name               String
+  parentId           String? // si el producto es una pieza suelta
+  conversionFactor   Int? // cuantas piezas sueltas salen de la caja
   priceCost          Float
   priceSale          Float
   stock              Float
   isByWeight         Boolean             @default(false)
+  isActive           Boolean             @default(true)
   tenantId           String
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
@@ -70,7 +73,10 @@ model Product {
   purchaseItems      PurchaseItem[]
   InventoryMovements InventoryMovement[]
 
-    tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentProduct   Product?       @relation("BoxToPieces", fields: [parentId], references: [id], onDelete: SetNull)
+  childProducts   Product[]      @relation("BoxToPieces")
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, barcode])
 }

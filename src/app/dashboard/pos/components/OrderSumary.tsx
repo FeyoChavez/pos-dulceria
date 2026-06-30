@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/utils/format';
 import React from 'react';
 
 interface OrderSummaryProps {
@@ -19,7 +20,7 @@ export default function OrderSummary({ itemsCount, totalVenta, isCobrande, onCob
           </div>
           <div className="flex justify-between items-center py-2 border-b border-zinc-100">
             <span>Subtotal base</span>
-            <span className="font-medium text-zinc-900">${totalVenta.toFixed(2)}</span>
+            <span className="font-medium text-zinc-900">{formatMoney(totalVenta)}</span>
           </div>
         </div>
       </div>
@@ -27,7 +28,7 @@ export default function OrderSummary({ itemsCount, totalVenta, isCobrande, onCob
       <div className="mt-8 pt-6 border-t border-zinc-200">
         <div className="flex justify-between items-end mb-6">
           <span className="text-sm font-medium text-zinc-500 uppercase tracking-wider">Total a Pagar</span>
-          <span className="text-4xl font-bold text-zinc-900 tracking-tight">${totalVenta.toFixed(2)}</span>
+          <span className="text-4xl font-bold text-zinc-900 tracking-tight">{formatMoney(totalVenta)}</span>
         </div>
         <button
           onClick={onCobrar}

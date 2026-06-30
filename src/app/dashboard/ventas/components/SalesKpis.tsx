@@ -1,5 +1,6 @@
 import React from 'react';
 import { DollarSign, Receipt, ArrowDownRight } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface SalesKpisProps {
   totalIngresos: number;
@@ -14,7 +15,7 @@ export default function SalesKpis({ totalIngresos, totalTickets, totalDevuelto }
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
           <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Ingresos Netos
         </span>
-        <span className="block text-2xl font-black text-zinc-900 mt-2">${totalIngresos.toFixed(2)}</span>
+        <span className="block text-2xl font-black text-zinc-900 mt-2">{formatMoney(totalIngresos)}</span>
       </div>
 
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-zinc-200 flex flex-col justify-between">
@@ -31,7 +32,7 @@ export default function SalesKpis({ totalIngresos, totalTickets, totalDevuelto }
           <ArrowDownRight className="w-3.5 h-3.5 text-red-500" /> Devoluciones
         </span>
         <span className={`block text-2xl font-black mt-2 ${totalDevuelto > 0 ? 'text-red-600' : 'text-zinc-400'}`}>
-          ${totalDevuelto.toFixed(2)}
+          {formatMoney(totalDevuelto)}
         </span>
       </div>
     </div>

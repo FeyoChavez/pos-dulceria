@@ -54,6 +54,64 @@ export async function GET(request: Request) {
   }
 }
 
+async function procesarSalidaConRuptura(tx: any, productId: string, tenantId: string, userId: string, qtyNeeded: number) {
+  const prod = await tx.product.findUnique({
+    where: { id: productId, tenantId },
+    select: { id: true, name: true, stock: true, parentId: true, conversionFactor: true }
+  });
+
+  if (!prod) throw new Error('Producto_No_Encontrado');
+
+  // CAMINO A: Hay stock suelto suficiente para surtir la venta
+  if (prod.stock >= qtyNeeded) {
+    await tx.product.update({
+      where: { id: productId },
+      data: { stock: { decrement: qtyNeeded } }
+    });
+    return;
+  }
+
+  // CAMINO B: No alcanza el stock suelto, evaluamos si podemos "abrir una caja" (Tiene Padre)
+  if (prod.parentId && prod.conversionFactor && prod.conversionFactor > 0) {
+    const stockFaltante = qtyNeeded - prod.stock;
+    const cajasAAbrir = Math.ceil(stockFaltante / prod.conversionFactor);
+
+    // Rompemos las cajas necesarias del producto Padre recursivamente
+    await procesarSalidaConRuptura(tx, prod.parentId, tenantId, userId, cajasAAbrir);
+
+    // Calculamos cuantas piezas sueltas salieron de esas cajas
+    const piezasGeneradas = cajasAAbrir * prod.conversionFactor;
+
+    // Dejamos el rastro en el Kardex Universal para auditoría
+    await tx.inventoryMovement.create({
+      data: {
+        type: 'IN',
+        quantity: piezasGeneradas,
+        reason: `Desempaque automático (${cajasAAbrir} caja/s) para surtir venta de: ${prod.name}`,
+        productId: prod.id,
+        tenantId,
+        userId
+      }
+    });
+
+    // Actualizamos el stock final del producto hijo (Lo que tenía + lo que salió de la caja - lo que se vendió hoy)
+    const stockFinal = prod.stock + piezasGeneradas - qtyNeeded;
+
+    await tx.product.update({
+      where: { id: prod.id },
+      data: { stock: stockFinal }
+    });
+
+  } else {
+    // CAMINO C: Es un producto normal sin caja o ya no hay cajas en el almacén. 
+    // Restamos directo (permitiendo negativos contables de mostrador)
+    await tx.product.update({
+      where: { id: productId },
+      data: { stock: { decrement: qtyNeeded } }
+    });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -80,7 +138,7 @@ export async function POST(request: Request) {
 
       if (!activeSession) throw new Error('Caja_Cerrada');
 
-      // Crear la venta vinculando al cliente si es credito
+      // Crear el ticket maestro de venta
       const nuevaVenta = await tx.sale.create({
         data: {
           total,
@@ -99,27 +157,23 @@ export async function POST(request: Request) {
         }
       });
 
-      // Operaciones Contables específicas por método de pago
-      const operaciones = [
-        ...cart.map((item: any) => 
-          tx.product.update({
-            where: { id: item.id },
-            data: { stock: { decrement: item.quantity } }
-          })
-        )
-      ];
+      // Descontar de inventario
+      for (const item of cart) {
+        await procesarSalidaConRuptura(tx, item.id, tenantId, userId, Number(item.quantity));
+      }
+
+      // Operaciones Financieras y de Arqueo (En paralelo)
+      const finOps: any[] = [];
 
       if (paymentMethod === 'CREDIT') {
-        // Si es credito, restamos el dinero de su balance (acumula deuda negativa)
-        operaciones.push(
+        finOps.push(
           tx.customer.update({
             where: { id: customerId },
             data: { balance: { decrement: total } }
           })
         );
       } else if (paymentMethod === 'CASH') {
-        // SOLO el efectivo físico incrementa el arqueo esperado de la caja
-        operaciones.push(
+        finOps.push(
           tx.cashSession.update({
             where: { id: activeSession.id },
             data: { expectedBalance: { increment: total } }
@@ -127,7 +181,8 @@ export async function POST(request: Request) {
         );
       }
 
-      await Promise.all(operaciones);
+      if (finOps.length > 0) await Promise.all(finOps);
+
       return nuevaVenta;
 
     }, { maxWait: 5000, timeout: 15000 });
@@ -138,6 +193,7 @@ export async function POST(request: Request) {
     if (error.message === 'Caja_Cerrada') {
       return NextResponse.json({ error: 'Turno de caja cerrado.' }, { status: 400 });
     }
+    console.error('Error en POS:', error);
     return NextResponse.json({ error: 'Error procesando la venta' }, { status: 500 });
   }
 }

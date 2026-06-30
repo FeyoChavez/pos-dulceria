@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import ProductTable from './components/ProductTable';
 import ProductFormModal from './components/ProductFormModal';
-import StockAdjustmentModal from '@/components/ui/StockAdjustmentModal'; // Ajusta la ruta a donde guardaste el modal del paso anterior
+import StockAdjustmentModal from '@/components/ui/StockAdjustmentModal';
+import ConfirmModal from './components/form/ConfirmModal';
+import { toast } from 'react-toastify';
 
 interface Product {
   id: string;
@@ -13,11 +15,14 @@ interface Product {
   priceSale: number;
   stock: number;
   isByWeight: boolean;
+  isActive?: boolean; 
 }
 
 export default function ProductosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, productId: '' });
   
   // Modals
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -53,17 +58,58 @@ export default function ProductosPage() {
     setIsStockModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.')) return;
+  const handleDeleteClick = (id: string) => {
+    setDeleteModal({ isOpen: true, productId: id });
+  };
+
+  const handleConfirmDelete = async () => {
+    const id = deleteModal.productId;
+    
+    // Ocultamos el producto al instante cambiando isActive a false localmente
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, isActive: false } : p));
+
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchProducts();
+        toast.info('Producto movido a la papelera');
       } else {
-        alert('Error al eliminar');
+        const data = await res.json();
+        // Revertir si hay error en el servidor
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, isActive: true } : p));
+        toast.error(data.error || 'Error al archivar');
       }
     } catch (error) {
       console.error(error);
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, isActive: true } : p));
+      toast.error('Error de conexión');
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    const targetProduct = products.find((p: any) => p.id === id);
+    if (!targetProduct) return;
+
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, isActive: true } : p));
+
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...targetProduct, isActive: true }),
+      });
+
+      if (res.ok) {
+        toast.success('Producto restaurado de la papelera');
+      } else {
+        const data = await res.json();
+        // Revertir si falla
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, isActive: false } : p));
+        toast.error(data.error || 'Error al restaurar');
+      }
+    } catch (error) {
+      console.error('Error al restaurar:', error);
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, isActive: false } : p));
+      toast.error('Error de conexión');
     }
   };
 
@@ -91,8 +137,9 @@ export default function ProductosPage() {
           isLoading={isLoading} 
           products={products} 
           onEdit={openFormModal} 
-          onDelete={handleDelete}
+          onDelete={handleDeleteClick} 
           onAdjustStock={openStockModal}
+          onRestore={handleRestore}
         />
       </div>
 
@@ -109,6 +156,15 @@ export default function ProductosPage() {
         product={selectedProduct} 
         onClose={() => setIsStockModalOpen(false)} 
         onSuccess={fetchProducts} 
+      />
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="¿Mover a la papelera?"
+        message="El dulce dejará de estar disponible en el POS de forma inmediata, pero conservará su historial en el Kardex."
+        confirmText="Archivar Producto"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeleteModal({ isOpen: false, productId: '' })}
       />
       
     </div>

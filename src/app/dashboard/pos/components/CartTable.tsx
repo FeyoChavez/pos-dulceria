@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/utils/format';
 import React, { useState, useEffect } from 'react';
 
 interface CartTableProps {
@@ -114,15 +115,15 @@ export default function CartTable({ cart, updateQuantity, setExactQuantity, remo
               </td>
               
               <td className="px-6 py-4 text-right">
-                {isPromoActive && <span className="block text-[10px] text-zinc-400 line-through mb-0.5 font-mono">${item.priceSale.toFixed(2)}</span>}
-                <span className={`font-mono font-medium ${isPromoActive ? 'text-emerald-600 font-bold' : 'text-zinc-600'}`}>${currentUnitPrice.toFixed(2)}</span>
+                {isPromoActive && <span className="block text-[10px] text-zinc-400 line-through mb-0.5 font-mono">{formatMoney(item.priceSale)}</span>}
+                <span className={`font-mono font-medium ${isPromoActive ? 'text-emerald-600 font-bold' : 'text-zinc-600'}`}>{formatMoney(currentUnitPrice)}</span>
               </td>
               
               <td className="px-6 py-4 text-right">
                 {/* subtotal original tachado */}
-                {isPromoActive && <span className="block text-[10px] text-zinc-400 line-through mb-0.5 font-mono">${originalSubtotal.toFixed(2)}</span>}
+                {isPromoActive && <span className="block text-[10px] text-zinc-400 line-through mb-0.5 font-mono">{formatMoney(originalSubtotal)}</span>}
                 <span className={`font-mono font-bold text-lg ${isPromoActive ? 'text-emerald-600' : 'text-zinc-900'}`}>
-                  ${item.subtotal.toFixed(2)}
+                  {formatMoney(item.subtotal)}
                 </span>
               </td>
               

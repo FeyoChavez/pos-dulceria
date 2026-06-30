@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sale } from '../page';
 import { ChevronDown, ChevronRight, CornerDownRight, Package } from 'lucide-react';
+import { formatMoney } from '@/lib/utils/format';
 
 interface SalesTableProps {
   sales: Sale[];
@@ -95,7 +96,7 @@ export default function SalesTable({ sales, isLoading, onRefund, onRefundItem }:
                     </td>
                     
                     <td className={`px-4 py-4 text-center font-mono font-bold text-base ${isDevuelto ? 'text-red-400 line-through' : 'text-zinc-900'}`}>
-                      ${displayTotal.toFixed(2)}
+                      {formatMoney(displayTotal)}
                     </td>
                     
                     <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
@@ -160,10 +161,10 @@ export default function SalesTable({ sales, isLoading, onRefund, onRefundItem }:
                                         {item.product.name}
                                       </td>
                                       <td className="px-4 py-1.5 text-center font-mono text-zinc-500">
-                                        ${item.priceSnap.toFixed(2)}
+                                        {formatMoney(item.priceSnap)}
                                       </td>
                                       <td className={`px-4 py-1.5 text-center font-mono font-bold ${isItemDevuelto ? 'text-zinc-400 line-through' : 'text-zinc-800'}`}>
-                                        ${itemSubtotal.toFixed(2)}
+                                        {formatMoney(itemSubtotal)}
                                       </td>
                                       <td className="px-4 py-1.5 text-center">
                                         {!isItemDevuelto && (

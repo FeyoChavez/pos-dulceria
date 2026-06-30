@@ -10,7 +10,8 @@ export async function GET(request: Request) {
 
   try {
     const products = await prisma.product.findMany({
-      where: { tenantId },
+      where: { 
+        tenantId},
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(products);
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, barcode, priceCost, priceSale, stock, isByWeight } = body;
+    const { name, barcode, priceCost, priceSale, stock, isByWeight, parentId, conversionFactor } = body;
 
     const newProduct = await prisma.product.create({
       data: {
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
         minWholesaleQty: body.minWholesaleQty,
         discountPercent: body.discountPercent,
         discountEndDate: body.discountEndDate,
+
+        parentId: parentId ? String(parentId) : null,
+        conversionFactor: conversionFactor ? Number(conversionFactor) : null
       },
     });
 

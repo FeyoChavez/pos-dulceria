@@ -1,3 +1,4 @@
+import { formatMoney } from '@/lib/utils/format';
 import React from 'react';
 
 interface AuditTableProps {
@@ -37,12 +38,12 @@ export default function AuditTable({ isLoading, reports, selectedSessionId, onSe
                     {new Date(report.closedAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="px-6 py-4 text-sm text-zinc-600">{report.cashier}</td>
-                  <td className="px-6 py-4 text-sm text-right text-zinc-600">${report.expectedBalance.toFixed(2)}</td>
-                  <td className="px-6 py-4 text-sm text-right font-semibold text-zinc-900">${report.closingBalance.toFixed(2)}</td>
+                  <td className="px-6 py-4 text-sm text-right text-zinc-600">{formatMoney(report.expectedBalance)}</td>
+                  <td className="px-6 py-4 text-sm text-right font-semibold text-zinc-900">{formatMoney(report.closingBalance)}</td>
                   <td className={`px-6 py-4 text-sm text-right font-bold ${
                     report.difference === 0 ? 'text-emerald-600' : report.difference < 0 ? 'text-red-600' : 'text-amber-600'
                   }`}>
-                    {report.difference === 0 ? 'Exacto' : `${report.difference > 0 ? '+' : ''}$${report.difference.toFixed(2)}`}
+                    {report.difference === 0 ? 'Exacto' : `${report.difference > 0 ? '+' : ''}${formatMoney(report.difference)}`}
                   </td>
                 </tr>
               ))

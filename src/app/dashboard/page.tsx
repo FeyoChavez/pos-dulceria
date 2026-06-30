@@ -36,7 +36,7 @@ export default function DashboardPrincipalPage() {
       </div>
     );
   }
-
+ 
   if (!data) return null;
 
   return (

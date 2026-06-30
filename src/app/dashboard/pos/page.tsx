@@ -25,6 +25,7 @@ interface CartItem {
   minWholesaleQty?: number | null;
   discountPercent?: number | null;
   discountEndDate?: string | null;
+  parentId?: string | null;
 }
 
 const calcularPrecioUnitarioReal = (item: any, qty: number): number => {
@@ -93,6 +94,7 @@ export default function PosPage() {
     if (appStatus === 'READY') searchInputRef.current?.focus();
   }, [appStatus]);
 
+  // pintar rapido el ticket
   useEffect(() => {
     if (ticketData) {
       const timer = setTimeout(() => { window.print(); }, 80);
@@ -105,6 +107,7 @@ export default function PosPage() {
     }
   }, [ticketData]);
 
+  // cobrar con F12
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "F12" && cart.length > 0 && !isCobrando && !ticketData) {
@@ -116,6 +119,7 @@ export default function PosPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [cart, isCobrando, ticketData, paymentMethod, selectedCustomer]);
 
+  // buscador
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const query = searchInput.trim().toLowerCase();
@@ -140,6 +144,7 @@ export default function PosPage() {
       processAddToCart(product, 1);
     }
   };
+
   // actualiza el carrito
   const processAddToCart = (product: any, qtyToAdd: number) => {
     setCart((prev) => {
@@ -147,7 +152,9 @@ export default function PosPage() {
       
       if (existing) {
         const nuevaQty = existing.quantity + qtyToAdd;
-        if (nuevaQty > product.stock) {
+        
+        // Ignora el límite si el producto tiene un Padre (se romperá caja)
+        if (nuevaQty > product.stock && !product.parentId) {
           toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
           return prev;
         }
@@ -160,7 +167,8 @@ export default function PosPage() {
         );
       }
 
-      if (qtyToAdd > product.stock) {
+      // Ignora el límite si el producto tiene un Padre
+      if (qtyToAdd > product.stock && !product.parentId) {
         toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
         return prev;
       }
@@ -171,7 +179,8 @@ export default function PosPage() {
         id: product.id, name: product.name, barcode: product.barcode, priceSale: product.priceSale, 
         isByWeight: product.isByWeight, quantity: qtyToAdd, subtotal: Number((qtyToAdd * precioUnitario).toFixed(2)), 
         stock: product.stock, priceWholesale: product.priceWholesale, minWholesaleQty: product.minWholesaleQty,
-        discountPercent: product.discountPercent, discountEndDate: product.discountEndDate
+        discountPercent: product.discountPercent, discountEndDate: product.discountEndDate,
+        parentId: product.parentId 
       }];
     });
   };
@@ -182,7 +191,8 @@ export default function PosPage() {
 
     const newQty = Math.max(existing.isByWeight ? 0.05 : 1, existing.quantity + amount);
     
-    if (newQty > existing.stock) {
+    // Ignora el límite al sumar si es un producto hijo
+    if (newQty > existing.stock && !existing.parentId) {
       toast.warning("Límite de inventario alcanzado");
       return;
     }
@@ -200,10 +210,13 @@ export default function PosPage() {
   const setExactQuantity = (id: string, exactQty: number) => {
     setCart((prev) => prev.map((item) => {
       if (item.id === id) {
-        if (exactQty > item.stock) {
+        
+        // Ignora el límite manual si es un producto hijo
+        if (exactQty > item.stock && !item.parentId) {
           toast.warning(`Solo quedan ${item.stock} disponibles en inventario.`);
           return item; 
         }
+        
         const precioUnitario = calcularPrecioUnitarioReal(item, exactQty);
         return { ...item, quantity: exactQty, subtotal: Number((exactQty * precioUnitario).toFixed(2)) };
       }
@@ -211,8 +224,10 @@ export default function PosPage() {
     }));
   };
 
-  const removeFromCart = (id: string) => { setCart((prev) => prev.filter((item) => item.id !== id)); searchInputRef.current?.focus(); };
-
+  const removeFromCart = (id: string) => { 
+    setCart((prev) => prev.filter((item) => item.id !== id)); 
+    searchInputRef.current?.focus(); 
+  };
   const handleCobrar = async () => {
     if (cart.length === 0 || isCobrando) return;
     if (paymentMethod === 'CREDIT' && !selectedCustomer) {
