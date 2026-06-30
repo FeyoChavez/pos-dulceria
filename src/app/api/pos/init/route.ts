@@ -29,7 +29,9 @@ export async function GET() {
         priceWholesale: true,
         minWholesaleQty: true,
         discountPercent: true,
-        discountEndDate: true
+        discountEndDate: true,
+        parentId: true,
+        conversionFactor: true,
       }
       }),
       prisma.customer.findMany({

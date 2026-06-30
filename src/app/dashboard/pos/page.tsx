@@ -147,40 +147,30 @@ export default function PosPage() {
 
   // actualiza el carrito
   const processAddToCart = (product: any, qtyToAdd: number) => {
+    const existing = cart.find((item) => item.id === product.id);
+    const nuevaQty = existing ? existing.quantity + qtyToAdd : qtyToAdd;
+
+    if (nuevaQty > product.stock && !product.parentId) {
+      toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
+      return; 
+    }
+
+    const precioUnitario = calcularPrecioUnitarioReal(product, nuevaQty);
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      
       if (existing) {
-        const nuevaQty = existing.quantity + qtyToAdd;
-        
-        // Ignora el límite si el producto tiene un Padre (se romperá caja)
-        if (nuevaQty > product.stock && !product.parentId) {
-          toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
-          return prev;
-        }
-
-        const precioUnitario = calcularPrecioUnitarioReal(product, nuevaQty);
-
         return prev.map((item) => item.id === product.id
           ? { ...item, quantity: nuevaQty, subtotal: Number((nuevaQty * precioUnitario).toFixed(2)) }
           : item
         );
       }
 
-      // Ignora el límite si el producto tiene un Padre
-      if (qtyToAdd > product.stock && !product.parentId) {
-        toast.error(`Stock insuficiente. Solo quedan ${product.stock} disponibles.`);
-        return prev;
-      }
-
-      const precioUnitario = calcularPrecioUnitarioReal(product, qtyToAdd);
-
       return [...prev, {
         id: product.id, name: product.name, barcode: product.barcode, priceSale: product.priceSale, 
         isByWeight: product.isByWeight, quantity: qtyToAdd, subtotal: Number((qtyToAdd * precioUnitario).toFixed(2)), 
         stock: product.stock, priceWholesale: product.priceWholesale, minWholesaleQty: product.minWholesaleQty,
         discountPercent: product.discountPercent, discountEndDate: product.discountEndDate,
-        parentId: product.parentId 
+        parentId: product.parentId // Guardamos la herencia
       }];
     });
   };

@@ -14,6 +14,7 @@ export interface Product {
   minWholesaleQty?: number | null;
   discountPercent?: number | null;
   discountEndDate?: string | null;
+  parentId?: string | null;
 }
 
 interface ProductTableProps {
@@ -138,6 +139,11 @@ export default function ProductTable({ isLoading, products, onEdit, onDelete, on
                       {product.barcode ? <span className="font-mono bg-zinc-100 px-1 py-0.5 rounded text-zinc-500 mr-1">{product.barcode}</span> : 'Sin código'} 
                       • {product.isByWeight ? 'Granel' : 'Pieza'}
                     </p>
+                    {product.parentId && (
+                      <span className="text-[10px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded-md mt-1 inline-block">
+                        Desempacado de: {products.find(p => p.id === product.parentId)?.name || 'Caja Madre (Oculta/Eliminada)'}
+                      </span>
+                    )}
                   </td>
 
                   <td className="px-6 py-3.5 text-zinc-500 font-mono text-xs">

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/auth';
 
-// OBTENER HISTORIAL DE COMPRAS (CON FILTRO DE FECHAS CORREGIDO -06:00)
+// OBTENER HISTORIAL DE COMPRAS 
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -137,25 +137,36 @@ export async function POST(request: Request) {
         });
       }
 
-      // SUBIR STOCK EN INVENTARIO (OPERACIÓN ATÓMICA POR ARTÍCULO)
-      const updatesStock = items.map((item: any) =>
-        tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { tracking: true, increment: Number(item.quantity) } as any } // Evitar paranoias de tipos si se usa incremento directo
-        })
-      );
-      
-      const updatesStockPlano = items.map((item: any) =>
-        tx.product.update({
+      // ACTUALIZAR STOCK Y COSTO DEL PADRE + AUTO-CALCULAR COSTO DE SUS HIJOS
+      for (const item of items) {
+        // Actualizamos el Padre (Incrementa stock y fija el nuevo costo de la factura)
+        await tx.product.update({
           where: { id: item.productId },
           data: { 
             stock: { increment: Number(item.quantity) },
             priceCost: Number(item.costPrice) 
           }
-        })
-      );
+        });
 
-      await Promise.all(updatesStockPlano);
+        // Buscamos si este Padre tiene Hijos vinculados
+        const childProducts = await tx.product.findMany({
+          where: { parentId: item.productId, tenantId }
+        });
+
+        // Si tiene hijos, les actualizamos su costo de reposicion unitario en automatico
+        if (childProducts.length > 0) {
+          for (const child of childProducts) {
+            if (child.conversionFactor && child.conversionFactor > 0) {
+              const newChildCost = Number((Number(item.costPrice) / child.conversionFactor).toFixed(2));
+              
+              await tx.product.update({
+                where: { id: child.id },
+                data: { priceCost: newChildCost }
+              });
+            }
+          }
+        }
+      }
 
       return nuevaCompra;
     });
