@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+// 🔥 FIX 1: Cambiamos useSession por getSession
+import { getSession } from 'next-auth/react'; 
 import TurnoCerradoPanel from './components/TurnoCerradoPanel';
 import TurnoAbiertoPanel from './components/TurnoAbiertoPanel';
 
@@ -19,6 +21,8 @@ export default function CajaPage() {
   const [isOpen, setIsOpen] = useState<boolean | null>(null);
   const [sessionData, setSessionData] = useState<CashSessionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [isAdmin, setIsAdmin] = useState(false); 
 
   const checkCajaStatus = async () => {
     setIsLoading(true);
@@ -36,7 +40,15 @@ export default function CajaPage() {
     }
   };
 
-  useEffect(() => { checkCajaStatus(); }, []);
+  useEffect(() => { 
+    const init = async () => {
+      const session = await getSession();
+      // Verificamos el rol y lo guardamos en el estado
+      setIsAdmin((session?.user as any)?.role === 'ADMIN');
+      await checkCajaStatus();
+    };
+    init();
+  }, []);
 
   const handleAbrirCaja = async (monto: number) => {
     const toastId = toast.loading("Abriendo turno...");
@@ -59,7 +71,8 @@ export default function CajaPage() {
 
   const handleCerrarCaja = async (montoFisico: number) => {
     if (!sessionData) return;
-    const toastId = toast.loading("Registrando corte...");
+    const toastId = toast.loading("Auditando billetes y registrando corte...");
+    
     try {
       const res = await fetch('/api/cash-session', {
         method: 'PUT',
@@ -67,15 +80,22 @@ export default function CajaPage() {
         body: JSON.stringify({
           id: sessionData.id,
           closingBalance: montoFisico,
-          expectedBalance: sessionData.expectedBalance,
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        toast.update(toastId, { render: "Corte realizado. Turno cerrado.", type: "success", isLoading: false, autoClose: 3000 });
+        if (data.difference === 0) {
+          toast.update(toastId, { render: "¡Corte exacto! Caja cuadrada al centavo. 👏", type: "success", isLoading: false, autoClose: 4000 });
+        } else if (data.difference < 0) {
+          toast.update(toastId, { render: `Turno cerrado. FALTANTE de $${Math.abs(data.difference).toFixed(2)} ⚠️`, type: "error", isLoading: false, autoClose: 5000 });
+        } else {
+          toast.update(toastId, { render: `Turno cerrado. SOBRANTE de $${data.difference.toFixed(2)} 💰`, type: "warning", isLoading: false, autoClose: 5000 });
+        }
         await checkCajaStatus();
       } else {
-        toast.update(toastId, { render: "Error al registrar el corte", type: "error", isLoading: false, autoClose: 3000 });
+        toast.update(toastId, { render: data.error || "Error al registrar el corte", type: "error", isLoading: false, autoClose: 3000 });
       }
     } catch (error) {
       toast.update(toastId, { render: "Error de red al cerrar caja", type: "error", isLoading: false, autoClose: 3000 });
@@ -104,7 +124,14 @@ export default function CajaPage() {
         </div>
 
         {!isOpen && <TurnoCerradoPanel onAbrir={handleAbrirCaja} />}
-        {isOpen && sessionData && <TurnoAbiertoPanel data={sessionData} onCerrar={handleCerrarCaja} />}
+        
+        {isOpen && sessionData && (
+          <TurnoAbiertoPanel 
+            data={sessionData} 
+            isAdmin={isAdmin} 
+            onCerrar={handleCerrarCaja} 
+          />
+        )}
         
       </div>
     </div>

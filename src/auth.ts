@@ -41,8 +41,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
-        token.tenantId = user.tenantId;
+        token.tenantId = (user as any).tenantId;
+        token.role = (user as any).role;
       }
       return token;
     },
@@ -50,13 +50,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }: any) {
       if (token) {
         session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.tenantId = token.tenantId;
+        (session.user as any).tenantId = token.tenantId;
+        (session.user as any).role = token.role;
       }
       return session;
     },
   },
   pages: {
-    signIn: '/auth/login', // Ruta de nuestra pantalla de Login personalizada
+    signIn: '/auth/login', 
   },
 });

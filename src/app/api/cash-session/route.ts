@@ -146,20 +146,60 @@ export async function PUT(request: Request) {
   const userId = session.user.id;
 
   try {
-    const { closingBalance, id, expectedBalance } = await request.json();
+    // recibimos lo que el cajero contó físicamente.
+    const { closingBalance, id } = await request.json();
+
+    // Traemos el historial completo del turno para auditar los billetes reales
+    const activeSession = await prisma.cashSession.findUnique({
+      where: { id, tenantId, userId, status: 'OPEN' },
+      include: {
+        sales: { include: { items: true, refund: true } },
+        refunds: true,
+        customerPayments: true,
+        expenses: true
+      }
+    });
+
+    if (!activeSession) {
+      return NextResponse.json({ error: 'No hay una caja abierta para cerrar' }, { status: 400 });
+    }
+
+    // Calculamos cuánto billete debe haber.
+    let ventasEfectivo = 0;
+    let devEfectivo = 0;
+    
+    activeSession.sales.forEach(s => {
+      const t = s.items.reduce((sum, i) => sum + (i.quantity * i.priceSnap), 0);
+      if (s.paymentMethod === 'CASH') {
+        ventasEfectivo += t;
+        if (s.refund) devEfectivo += t;
+        else s.items.forEach(i => { if (i.refunded) devEfectivo += (i.quantity * i.priceSnap); });
+      }
+    });
+    
+    const abonosEfectivo = activeSession.customerPayments.filter(p => p.paymentMethod === 'CASH').reduce((sum, p) => sum + p.amount, 0);
+    const gastos = activeSession.expenses.reduce((sum, e) => sum + e.amount, 0);
+    const retirosLegacy = activeSession.refunds.reduce((sum, r) => sum + r.amount, 0);
+
+    const exactExpectedBalance = activeSession.openingBalance + ventasEfectivo + abonosEfectivo - devEfectivo - gastos - retirosLegacy;
+    // *(Si además tienes compras pagadas en efectivo de caja, réstalas aquí también)*
 
     const closedSession = await prisma.cashSession.update({
-      where: { id, tenantId, userId },
+      where: { id },
       data: {
-        closingBalance: Number(closingBalance),
-        expectedBalance: Number(expectedBalance),
+        closingBalance: Number(closingBalance), // El dinero que el cajero jura que hay
+        expectedBalance: exactExpectedBalance,  // El dinero que el sistema sabe que debe haber
         status: 'CLOSED',
         closedAt: new Date()
       }
     });
 
-    return NextResponse.json(closedSession);
+    // Calculamos si le sobró o le faltó dinero 
+    const difference = Number(closingBalance) - exactExpectedBalance;
+
+    return NextResponse.json({ ...closedSession, difference });
   } catch (error) {
-    return NextResponse.json({ error: 'Error al cerrar caja' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Error interno al realizar el corte de caja' }, { status: 500 });
   }
 }

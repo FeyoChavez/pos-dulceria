@@ -30,6 +30,7 @@ export default function CajaClosingCard({ onCerrar }: { onCerrar: (monto: number
         </button>
       </form>
 
+      {/* modal efectuar corte */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-zinc-100 animate-in zoom-in-95 duration-200">
